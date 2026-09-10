@@ -1,5 +1,7 @@
 # AssignEval
 
+Link to the website - https://assign-eval-n4mkhc165-xaiden.vercel.app/
+
 **AssignEval** is a frontend-only Assignment Evaluation System built
 using HTML, CSS, and vanilla JavaScript.
 
@@ -94,5 +96,3 @@ Future versions could add:
 ## Author
 
 **Tanmay Pratap Singh**
-
-GitHub: https://github.com/tanmay-psb
