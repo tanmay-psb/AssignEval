@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>To-Do List – AES</title>
+  <link rel="stylesheet" href="css/main.css"/>
+</head>
+<body>
+<div id="layout-root" class="app-layout"></div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  const student = checkAuth();
+  if (student) {
+    let content = `
+      ${renderSidebar('todo')}
+      <main class="main-content">
+        ${renderTopbar('To-Do List', 'Manage your upcoming coursework')}
+        <div class="page-body fade-in">
+          
+          <div style="max-width:800px;">
+            ${COURSES.map((c, idx) => {
+               const asgmts = getAssignmentsByCourse(c.id).sort((a,b)=>new Date(a.deadline)-new Date(b.deadline));
+               if(!asgmts.length) return '';
+               const pendingCount = asgmts.filter(a => getEffectiveStatus(a)==='pending').length;
+               
+               return `
+                 <div class="todo-course-section fade-in fade-in-${idx%4 + 1}">
+                   <div class="course-section-header expanded" onclick="toggleSection(this)">
+                     <div style="display:flex;align-items:center;gap:12px;">
+                       <div style="width:36px;height:36px;border-radius:10px;background:rgba(249,115,22,.1);display:flex;align-items:center;justify-content:center;font-size:18px;">${c.icon}</div>
+                       <div>
+                         <div style="font-size:15px;font-weight:700;color:var(--neutral-900);">${c.name}</div>
+                         <div style="font-size:12px;color:var(--neutral-500);">${pendingCount} pending task${pendingCount!==1?'s':''}</div>
+                       </div>
+                     </div>
+                     <div style="color:var(--neutral-400);transition:transform .2s;" class="chevron">▼</div>
+                   </div>
+                   <div class="todo-list">
+                     ${asgmts.map(a => {
+                        const status = getEffectiveStatus(a);
+                        if (status === 'overdue') return '';
+                        const isDone = status === 'submitted';
+                        const tr = getTimeRemaining(a.deadline);
+                        
+                        return `
+                          <div class="todo-item ${isDone ? 'done' : ''}" onclick="if(!${isDone}) window.location.href='assignment-detail.html?id=${a.id}'" style="${isDone ? '' : 'cursor:pointer;'}">
+                            <div class="todo-check ${isDone ? 'checked' : ''}" title="${isDone ? 'Submitted' : 'Pending'}">${isDone ? '✓' : ''}</div>
+                            <div class="todo-item-title">${a.title}</div>
+                            ${isDone 
+                               ? `<div class="badge badge-success">Submitted</div>` 
+                               : `<div class="deadline-time ${tr.cls}" style="font-size:12px;background:var(--cream-50);padding:4px 10px;border-radius:99px;">⏰ ${tr.text}</div>`
+                            }
+                          </div>
+                        `;
+                     }).join('') || '<div style="padding:16px 20px;font-size:13px;color:var(--neutral-400);">No active tasks for this course.</div>'}
+                   </div>
+                 </div>
+               `;
+            }).join('')}
+          </div>
+
+        </div>
+      </main>
+    `;
+    document.getElementById('layout-root').innerHTML = content;
+  }
+  
+  window.toggleSection = function(el) {
+    el.classList.toggle('expanded');
+    const list = el.nextElementSibling;
+    const chevron = el.querySelector('.chevron');
+    if(el.classList.contains('expanded')) {
+       list.style.display = 'block';
+       chevron.style.transform = 'rotate(0deg)';
+    } else {
+       list.style.display = 'none';
+       chevron.style.transform = 'rotate(-90deg)';
+    }
+  }
+</script>
+</body>
+</html>

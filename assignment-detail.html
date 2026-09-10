@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Assignment Detail – AES</title>
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+
+<body>
+  <div id="layout-root" class="app-layout"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/evaluation.js"></script>
+  <script>
+    const student = checkAuth();
+    if (student) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const assignmentId = urlParams.get('id');
+      const assignment = getAssignmentById(assignmentId);
+
+      if (!assignment) {
+        document.getElementById('layout-root').innerHTML = renderSidebar('') + '<main class="main-content"><div class="page-body"><div class="empty-state">Assignment not found.</div></div></main>';
+      } else {
+        const course = getCourseById(assignment.courseId);
+        const status = getEffectiveStatus(assignment);
+        const sub = getSubmission(assignment.id) || (assignment.status !== 'pending' ? assignment : null);
+        const isOver = isOverdue(assignment.deadline);
+        const sb = statusBadge(status);
+
+        function renderEvalResults(s) {
+          if (!s || s.score == null) return '<div class="alert alert-info"><div class="alert-icon">ℹ️</div><div>Evaluation pending.</div></div>';
+
+          let fbHtml = '';
+          if (s.feedback) {
+            fbHtml = `
+            <div class="feedback-section">
+              <div class="feedback-group">
+                <div class="feedback-group-title"><span>🌟</span> Strengths</div>
+                <ul class="feedback-list">${s.feedback.strengths.map(x => `<li>${x}</li>`).join('')}</ul>
+              </div>
+              <div class="feedback-group">
+                <div class="feedback-group-title"><span>📈</span> Areas for Improvement</div>
+                <ul class="feedback-list">${s.feedback.improvements.map(x => `<li>${x}</li>`).join('')}</ul>
+              </div>
+              <div class="feedback-group">
+                <div class="feedback-group-title"><span>💡</span> Suggestions</div>
+                <ul class="feedback-list">${s.feedback.suggestions.map(x => `<li>${x}</li>`).join('')}</ul>
+              </div>
+            </div>`;
+          }
+
+          let pBar = '';
+          if (s.plagiarismScore != null) {
+            const color = s.plagiarismScore < 20 ? 'var(--success)' : s.plagiarismScore < 40 ? 'var(--warning)' : 'var(--danger)';
+            pBar = `
+            <div style="margin-top:24px;background:#fff;border-radius:var(--radius-sm);padding:20px;border:1px solid var(--neutral-200);">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <div style="font-size:14px;font-weight:700;">Plagiarism Check</div>
+                <div class="plagiarism-pct" style="color:${color}">${s.plagiarismScore}%</div>
+              </div>
+              <div class="progress-bar-wrap" style="height:12px;"><div class="progress-bar-fill" style="width:${s.plagiarismScore}%;background:${color};"></div></div>
+              <div style="font-size:12px;color:var(--neutral-500);margin-top:8px;">Match found against external sources.</div>
+            </div>
+          `;
+          }
+
+          let aiFlag = '';
+          if (s.aiScore != null && s.aiScore > 30) {
+            aiFlag = `
+             <div class="ai-flag" style="margin-top:16px;">
+               <div style="font-size:24px;">🤖</div>
+               <div>
+                 <div style="font-size:14px;font-weight:700;color:var(--danger);">Potential AI-Generated Content Detected</div>
+                 <div style="font-size:12px;color:var(--neutral-700);">AI Match Score: <strong>${s.aiScore}%</strong>. Please ensure academic integrity.</div>
+               </div>
+             </div>
+           `;
+          }
+
+          return `
+          <div class="eval-section fade-in fade-in-2">
+            <div class="eval-header">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-size:14px;font-weight:600;opacity:.9;text-transform:uppercase;letter-spacing:.05em;">Final Score</div>
+                  <div class="eval-score-big">${s.score}<span style="font-size:24px;opacity:.7;">/100</span></div>
+                </div>
+                <div style="text-align:right;">
+                  <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.3);">Download Report</button>
+                </div>
+              </div>
+            </div>
+            <div class="eval-body">
+              ${s.breakdown ? `
+              <div class="score-breakdown-grid">
+                <div class="score-item"><div class="score-item-value">${s.breakdown.relevance}%</div><div class="score-item-label">Relevance</div></div>
+                <div class="score-item"><div class="score-item-value">${s.breakdown.structure}%</div><div class="score-item-label">Structure</div></div>
+                <div class="score-item"><div class="score-item-value">${s.breakdown.completeness}%</div><div class="score-item-label">Completeness</div></div>
+                <div class="score-item"><div class="score-item-value">${s.breakdown.logic}%</div><div class="score-item-label">Logic</div></div>
+              </div>` : ''}
+              
+              <div style="height:1px;background:var(--neutral-100);margin:24px 0;"></div>
+              
+              <div class="section-title" style="margin-bottom:16px;">Evaluation Feedback</div>
+              ${fbHtml}
+              ${pBar}
+              ${aiFlag}
+            </div>
+          </div>
+        `;
+        }
+
+        function renderSubmissionArea() {
+          if (status === 'submitted') {
+            return `
+            <div class="alert alert-success" style="margin-top:24px;">
+              <div class="alert-icon">✅</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;">Successfully Submitted</div>
+                <div style="font-size:13px;opacity:.9;margin-top:2px;">Submitted on ${formatDateTime(sub.submittedAt)}</div>
+              </div>
+            </div>
+            ${renderEvalResults(sub)}
+          `;
+          }
+
+          if (isOver) {
+            return `
+            <div class="alert alert-danger" style="margin-top:24px;">
+              <div class="alert-icon">❌</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;">Deadline Passed</div>
+                <div style="font-size:13px;opacity:.9;margin-top:2px;">Submissions are no longer accepted for this assignment.</div>
+              </div>
+            </div>
+          `;
+          }
+
+          return `
+          <div class="card" style="margin-top:24px;">
+            <div class="card-header"><div class="card-title">Submit Assignment</div></div>
+            <div class="card-body">
+              <div class="alert alert-info">
+                <div class="alert-icon">ℹ️</div>
+                <div>For this demo, uploading a file will instantly simulate the AI evaluation and plagiarism checks using the file contents.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Submission Content</label>
+                <textarea id="submissionText" class="form-control" placeholder="Paste your assignment text here to simulate file contents..." rows="8"></textarea>
+              </div>
+              <div class="file-upload-area" id="dropArea" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drag & drop your file here or click to browse</div>
+                <div class="upload-sub">Supports PDF, DOCX, ZIP (Max 10MB)</div>
+                <input type="file" id="fileInput" style="display:none;" accept=".pdf,.doc,.docx,.zip,.txt"/>
+              </div>
+              <div style="margin-top:24px;text-align:right;">
+                <button id="submitBtn" class="btn btn-primary" onclick="handleSubmission()">Submit for Evaluation</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Evaluation Progress Modal -->
+          <div id="evalModal" class="modal-overlay">
+            <div class="modal">
+              <div class="modal-header">
+                <div class="modal-title" style="display:flex;align-items:center;gap:10px;">
+                  <span class="spinner spinner-dark" style="display:inline-block;"></span> 
+                  Evaluating Submission...
+                </div>
+              </div>
+              <div class="modal-body">
+                <div id="evalSteps" style="padding-left:14px;">
+                  <div class="eval-step" id="step1" style="color:var(--orange-500);font-weight:600;margin-bottom:12px;">⏳ Analysing content structure...</div>
+                  <div class="eval-step" id="step2" style="color:var(--neutral-400);margin-bottom:12px;">⏳ Running plagiarism detection...</div>
+                  <div class="eval-step" id="step3" style="color:var(--neutral-400);margin-bottom:12px;">⏳ Checking for AI-generated patterns...</div>
+                  <div class="eval-step" id="step4" style="color:var(--neutral-400);">⏳ Generating feedback report...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        let content = `
+        ${renderSidebar('assignments')}
+        <main class="main-content">
+          ${renderTopbar('Assignment details', course.code + ' • ' + course.name)}
+          <div class="page-body fade-in" style="max-width:900px;margin:0 auto;">
+            
+            <a href="assignments.html" class="btn btn-outline btn-sm" style="margin-bottom:20px;border:none;padding:0;">← Back to Assignments</a>
+
+            <div class="card">
+              <div class="card-body">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+                  <div>
+                    <div style="font-size:12px;font-weight:700;color:${course.color};margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;">${course.name}</div>
+                    <h1 style="font-size:24px;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;color:var(--neutral-900);line-height:1.3;">${assignment.title}</h1>
+                  </div>
+                  <div class="badge ${sb.cls}">${sb.icon} ${sb.label}</div>
+                </div>
+                
+                <div style="font-size:15px;color:var(--neutral-700);line-height:1.6;margin-bottom:24px;white-space:pre-wrap;">${assignment.description}</div>
+                
+                <div style="display:flex;gap:32px;padding-top:20px;border-top:1px solid var(--neutral-100);">
+                  <div>
+                    <div style="font-size:11px;color:var(--neutral-500);text-transform:uppercase;font-weight:600;margin-bottom:4px;">Deadline</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--neutral-800);">${formatDateTime(assignment.deadline)}</div>
+                  </div>
+                  <div>
+                    <div style="font-size:11px;color:var(--neutral-500);text-transform:uppercase;font-weight:600;margin-bottom:4px;">Max Marks</div>
+                    <div style="font-size:14px;font-weight:600;color:var(--neutral-800);">${assignment.maxMarks}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            ${status === 'pending' && !isOver ? `
+            <div style="margin-top:24px;background:var(--neutral-900);border-radius:var(--radius);padding:24px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-md);">
+              <div style="color:#fff;">
+                <div style="font-size:15px;font-weight:600;margin-bottom:4px;">Time Remaining to Submit</div>
+                <div id="countdownText" style="font-size:13px;color:rgba(255,255,255,.6);">Calculating...</div>
+              </div>
+              <div class="countdown" id="countdownDisplay">
+                <div class="countdown-unit"><div class="countdown-val">-</div><div class="countdown-label">Days</div></div>
+                <div class="countdown-unit"><div class="countdown-val">-</div><div class="countdown-label">Hrs</div></div>
+                <div class="countdown-unit"><div class="countdown-val">-</div><div class="countdown-label">Mins</div></div>
+                <div class="countdown-unit"><div class="countdown-val">-</div><div class="countdown-label">Secs</div></div>
+              </div>
+            </div>
+            ` : ''}
+
+            <div id="submissionContainer">
+              ${renderSubmissionArea()}
+            </div>
+
+          </div>
+        </main>
+      `;
+        document.getElementById('layout-root').innerHTML = content;
+
+        if (status === 'pending' && !isOver) {
+          setInterval(() => {
+            const t = getCountdownParts(assignment.deadline);
+            const cd = document.getElementById('countdownDisplay');
+            if (cd && !t.expired) {
+              cd.innerHTML = `
+              <div class="countdown-unit"><div class="countdown-val">${t.days}</div><div class="countdown-label">Days</div></div>
+              <div class="countdown-unit"><div class="countdown-val">${t.hours}</div><div class="countdown-label">Hrs</div></div>
+              <div class="countdown-unit"><div class="countdown-val">${t.mins}</div><div class="countdown-label">Mins</div></div>
+              <div class="countdown-unit"><div class="countdown-val">${t.secs}</div><div class="countdown-label">Secs</div></div>
+            `;
+              if (parseInt(t.days) == 0 && parseInt(t.hours) < 12) cd.classList.add('urgent');
+              document.getElementById('countdownText').textContent = 'Deadline is strictly enforced.';
+            } else if (cd && t.expired) {
+              window.location.reload();
+            }
+          }, 1000);
+        }
+      }
+    }
+
+    async function handleSubmission() {
+      let text = document.getElementById('submissionText').value.trim();
+      const file = document.getElementById('fileInput').files[0];
+
+      if (!text && !file) {
+        alert('Please paste some content or select a file to submit.');
+        return;
+      }
+      if (file && !text) { text = "Dummy content from file upload for simulation. Includes keywords like SQL database transaction deadlock depending on course."; }
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const assignmentId = urlParams.get('id');
+      const assignment = getAssignmentById(assignmentId);
+
+      document.getElementById('evalModal').classList.add('active');
+
+
+      const steps = [
+        { id: 'step1', fn: () => evaluateSubmission(text, assignment), label: '✅ Content structure analysed' },
+        { id: 'step2', fn: () => checkPlagiarism(text), label: '✅ Plagiarism check complete' },
+        { id: 'step3', fn: () => detectAI(text), label: '✅ AI content scan complete' }
+      ];
+
+      let evalRes = null, plagRes = null, aiRes = null;
+
+      for (let i = 0; i < steps.length; i++) {
+        const s = steps[i];
+        document.getElementById(s.id).style.color = 'var(--orange-500)';
+        document.getElementById(s.id).style.fontWeight = '600';
+        document.getElementById(s.id).textContent = `⏳ Running ${s.id}...`;
+
+        const result = await s.fn();
+        if (i === 0) evalRes = result;
+        if (i === 1) plagRes = result;
+        if (i === 2) aiRes = result;
+
+        document.getElementById(s.id).textContent = s.label;
+        document.getElementById(s.id).style.color = 'var(--success)';
+        if (i < steps.length - 1) {
+          document.getElementById(steps[i + 1].id).style.color = 'var(--orange-500)';
+          document.getElementById(steps[i + 1].id).style.fontWeight = '600';
+        }
+      }
+
+      document.getElementById('step4').style.color = 'var(--success)';
+      document.getElementById('step4').textContent = '✅ Feedback report generated';
+
+      await delay(800);
+
+      const finalData = {
+        score: evalRes.score,
+        breakdown: evalRes.breakdown,
+        feedback: evalRes.feedback,
+        plagiarismScore: plagRes.percentage,
+        aiScore: aiRes.score
+      };
+
+      saveSubmission(assignmentId, finalData);
+      window.location.reload();
+    }
+
+
+    const dropArea = document.getElementById('dropArea');
+    if (dropArea) {
+      dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+      dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+      dropArea.addEventListener('drop', (e) => {
+        e.preventDefault(); dropArea.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) {
+          document.getElementById('fileInput').files = e.dataTransfer.files;
+          dropArea.querySelector('.upload-text').textContent = e.dataTransfer.files[0].name;
+          dropArea.querySelector('.upload-sub').textContent = 'File selected. Ready to submit.';
+          dropArea.style.borderColor = 'var(--success)';
+          dropArea.style.background = 'var(--success-bg)';
+        }
+      });
+      document.getElementById('fileInput').addEventListener('change', function () {
+        if (this.files.length) {
+          dropArea.querySelector('.upload-text').textContent = this.files[0].name;
+          dropArea.querySelector('.upload-sub').textContent = 'File selected. Ready to submit.';
+          dropArea.style.borderColor = 'var(--success)';
+          dropArea.style.background = 'var(--success-bg)';
+        }
+      });
+    }
+  </script>
+</body>
+
+</html>

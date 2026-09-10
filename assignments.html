@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Assignments – AES</title>
+  <link rel="stylesheet" href="css/main.css"/>
+</head>
+<body>
+<div id="layout-root" class="app-layout"></div>
+
+<script src="js/data.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  const student = checkAuth();
+  if (student) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const filterCourse = urlParams.get('course') || 'all';
+    
+    let content = `
+      ${renderSidebar('assignments')}
+      <main class="main-content">
+        ${renderTopbar('Assignments', 'View and submit your course assignments')}
+        <div class="page-body fade-in">
+          
+          <div class="filter-tabs">
+            <div class="filter-chip ${filterCourse === 'all' ? 'active' : ''}" onclick="window.location.href='assignments.html'">All Courses</div>
+            ${COURSES.map(c => `
+              <div class="filter-chip ${filterCourse === c.id ? 'active' : ''}" onclick="window.location.href='assignments.html?course=${c.id}'">
+                ${c.id}
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="assignments-grid">
+            ${ASSIGNMENTS.filter(a => filterCourse === 'all' || a.courseId === filterCourse).map(a => {
+              const c = getCourseById(a.courseId);
+              const status = getEffectiveStatus(a);
+              const sb = statusBadge(status);
+              const tr = getTimeRemaining(a.deadline);
+              
+              let deadlineText = formatDate(a.deadline);
+              let deadlineHtml = '';
+              if (status === 'pending') {
+                 deadlineHtml = `<div class="deadline-text ${tr.cls}">⏰ ${tr.text}</div>`;
+              } else if (status === 'submitted') {
+                 const subTime = getSubmission(a.id)?.submittedAt || a.submittedAt;
+                 deadlineHtml = `<div class="deadline-text" style="color:var(--success)">✓ Submitted on ${formatDate(subTime)}</div>`;
+              } else {
+                 deadlineHtml = `<div class="deadline-text urgent">✗ Missed deadline</div>`;
+              }
+
+              return `
+                <a href="assignment-detail.html?id=${a.id}" class="assignment-card" style="display:block;">
+                  <div class="assignment-card-bar" style="background:${c.color}"></div>
+                  <div class="assignment-card-body">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+                      <div class="assignment-course" style="color:${c.color}">${c.name}</div>
+                      <div class="badge ${sb.cls}">${sb.icon} ${sb.label}</div>
+                    </div>
+                    <div class="assignment-title" style="margin-bottom:4px;">${a.title}</div>
+                    <div style="font-size:13px;color:var(--neutral-500);margin-bottom:16px;">Assignment ${parseInt(a.id.slice(-3), 10)}</div>
+                    <div class="assignment-meta">
+                      ${deadlineHtml}
+                      <span style="font-size:16px;color:var(--neutral-400)">→</span>
+                    </div>
+                  </div>
+                </a>
+              `;
+            }).join('') || '<div class="empty-state" style="grid-column:1/-1;"><p>No assignments found.</p></div>'}
+          </div>
+
+        </div>
+      </main>
+    `;
+    document.getElementById('layout-root').innerHTML = content;
+  }
+</script>
+</body>
+</html>

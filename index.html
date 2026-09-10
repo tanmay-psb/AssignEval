@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login – AES | Automated Assignment Evaluation System</title>
+  <meta name="description"
+    content="Secure student login for the Automated Assignment Evaluation System. Access your assignments, results, and feedback." />
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    body {
+      background: var(--cream-50);
+    }
+
+    .login-root {
+      min-height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-root">
+
+    <div class="login-left">
+      <div class="login-brand fade-in">
+        <div class="login-brand-icon">🎓</div>
+        <h1>Automated<br /><span>Assignment</span><br />Evaluation</h1>
+
+      </div>
+
+    </div>
+
+
+    <div class="login-right">
+      <div class="login-form-wrap fade-in">
+        <p>Sign in with your college credentials to continue.</p>
+
+        <div id="loginError" class="login-error">⚠️ <span id="errorMsg">Invalid credentials.</span></div>
+
+        <form id="loginForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="studentId">Student ID</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">🎓</span>
+              <input id="studentId" class="form-control" type="text" placeholder="e.g. 22IT001" autocomplete="username"
+                required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <div class="input-icon-wrap">
+              <span class="input-icon">🔒</span>
+              <input id="password" class="form-control" type="password" placeholder="Enter your password"
+                autocomplete="current-password" required />
+            </div>
+          </div>
+          <button id="loginBtn" class="btn btn-primary btn-lg" type="submit"
+            style="width:100%;justify-content:center;margin-top:8px;">
+            <span id="loginBtnText">Sign In</span>
+            <span id="loginSpinner" class="spinner" style="display:none;"></span>
+          </button>
+        </form>
+
+        <p style="margin-top:28px;font-size:12px;color:var(--neutral-400);text-align:center;">
+          B.Tech Information Technology<br />
+          Academic Year 2025–26
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+
+    if (getCurrentStudent()) window.location.href = 'dashboard.html';
+
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const id = document.getElementById('studentId').value.trim();
+      const pwd = document.getElementById('password').value;
+      const errEl = document.getElementById('loginError');
+      const msgEl = document.getElementById('errorMsg');
+      const btnTxt = document.getElementById('loginBtnText');
+      const spinner = document.getElementById('loginSpinner');
+
+      errEl.classList.remove('show');
+      btnTxt.style.display = 'none';
+      spinner.style.display = 'inline-block';
+      document.getElementById('loginBtn').disabled = true;
+
+      await new Promise(r => setTimeout(r, 800));
+
+      const result = login(id, pwd);
+      if (result.success) {
+        window.location.href = 'dashboard.html';
+      } else {
+        msgEl.textContent = result.error;
+        errEl.classList.add('show');
+        btnTxt.style.display = 'inline';
+        spinner.style.display = 'none';
+        document.getElementById('loginBtn').disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>
